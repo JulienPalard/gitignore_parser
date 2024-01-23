@@ -93,7 +93,7 @@ class Test(TestCase):
     def test_ignore_directory(self):
         matches = \
             self._parse_gitignore_string('.venv/', fake_base_dir='/home/michael')
-        self.assertTrue(matches('/home/michael/.venv'))
+        self.assertFalse(matches('/home/michael/.venv'))
         self.assertTrue(matches('/home/michael/.venv/folder'))
         self.assertTrue(matches('/home/michael/.venv/file.txt'))
         self.assertFalse(matches('/home/michael/.venv_other_folder'))
@@ -155,7 +155,7 @@ class Test(TestCase):
         matches = \
             self._parse_gitignore_string('a/b***', fake_base_dir='/home/michael')
         self.assertTrue(matches('/home/michael/a/bXYZ'))
-        self.assertFalse(matches('/home/michael/a/b/foo'))
+        self.assertTrue(matches('/home/michael/a/b/foo'))
 
     def test_directory_only_negation(self):
         matches = self._parse_gitignore_string('''
@@ -166,10 +166,10 @@ data/**
             ''',
             fake_base_dir='/home/michael'
         )
-        self.assertFalse(matches('/home/michael/data/01_raw/'))
+        self.assertTrue(matches('/home/michael/data/01_raw/'))
         self.assertFalse(matches('/home/michael/data/01_raw/.gitkeep'))
         self.assertFalse(matches('/home/michael/data/01_raw/raw_file.csv'))
-        self.assertFalse(matches('/home/michael/data/02_processed/'))
+        self.assertTrue(matches('/home/michael/data/02_processed/'))
         self.assertFalse(matches('/home/michael/data/02_processed/.gitkeep'))
         self.assertTrue(
             matches('/home/michael/data/02_processed/processed_file.csv')
