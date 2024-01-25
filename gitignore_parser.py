@@ -53,10 +53,6 @@ def rule_from_pattern(pattern, base_path=None, source=None):
         pattern = pattern[1:]
     else:
         negation = False
-    # Multi-asterisks not surrounded by slashes (or at the start/end) should
-    # be treated like single-asterisks.
-    pattern = re.sub(r'([^/])\*{2,}', r'\1*', pattern)
-    pattern = re.sub(r'\*{2,}([^/])', r'*\1', pattern)
 
     # Special-casing '/', which doesn't match any files or directories
     if pattern.rstrip() == '/':
@@ -68,9 +64,6 @@ def rule_from_pattern(pattern, base_path=None, source=None):
     anchored = '/' in pattern[:-1]
     if pattern[0] == '/':
         pattern = pattern[1:]
-    if pattern[0] == '*' and len(pattern) >= 2 and pattern[1] == '*':
-        pattern = pattern[2:]
-        anchored = False
     if pattern[0] == '/':
         pattern = pattern[1:]
     if pattern[-1] == '/':
@@ -128,7 +121,7 @@ class IgnoreRule(collections.namedtuple('IgnoreRule_', IGNORE_RULE_FIELDS)):
             rel_path = str(_normalize_path(abs_path))
         # Path() strips the trailing slash, so we need to preserve it
         # in case of directory-only negation
-        if self.negation and type(abs_path) == str and abs_path[-1] == '/':
+        if type(abs_path) == str and abs_path[-1] == '/':
             rel_path += '/'
         if rel_path.startswith('./'):
             rel_path = rel_path[2:]
@@ -159,18 +152,23 @@ def fnmatch_pathname_to_regex(
         c = pattern[i]
         i += 1
         if c == '*':
-            try:
-                if pattern[i] == '*':
-                    i += 1
-                    if i < n and pattern[i] == '/':
-                        i += 1
-                        res.append(''.join(['(.*', seps_group, ')?']))
-                    else:
-                        res.append('.*')
-                else:
-                    res.append(''.join([nonsep, '*']))
-            except IndexError:
-                res.append(''.join([nonsep, '*']))
+            if i == 1 and pattern[:3] == '**/':  # A leading "**" followed by a slash
+                anchored = False
+                i += 3
+            elif i == n - 1 and pattern[-3:] == '/**': # A trailing "/**"
+                res.append(seps_group)
+                res.append(".*")
+                i += 2
+            elif i == n - 1 and pattern[-2:] == '**': # A trailing "**" matches everything.
+                res.append(".*")
+                i += 2
+            elif i != 1 and pattern[i-2:i+2] == "/**/":
+                # A slash followed by two consecutive asterisks then a slash
+                # Note: the / has already been added in the previous loop.
+                res.append(f'(.+{seps_group})*')
+                i += 2
+            else:
+                res.append(f'({nonsep}*)')
         elif c == '?':
             res.append(nonsep)
         elif c == '/':
@@ -199,12 +197,10 @@ def fnmatch_pathname_to_regex(
         res.insert(0, '^')
     else:
         res.insert(0, f"(^|{seps_group})")
-    if not directory_only:
-        res.append('$')
-    elif directory_only and negation:
-        res.append('/$')
+    if directory_only:
+        res.append('/')
     else:
-        res.append('($|\\/)')
+        res.append('(/|$)')
     return ''.join(res)
 
 

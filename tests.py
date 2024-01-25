@@ -163,7 +163,7 @@ data/**
 !data/**/
 !.gitkeep
 !data/01_raw/*
-            ''',
+''',
             fake_base_dir='/home/michael'
         )
         self.assertTrue(matches('/home/michael/data/01_raw/'))
